@@ -13,6 +13,7 @@ import sklearn.ensemble
 from azureml.core.workspace import Workspace
 from azureml.core import Datastore
 from azureml.core.dataset import Dataset
+from azureml.core.run import Run
 
 
 COLUMNS = ['age', 'workclass', 'fnlwgt', 'education', 'education-num', 'martial-status', 'occupation',
@@ -20,13 +21,7 @@ COLUMNS = ['age', 'workclass', 'fnlwgt', 'education', 'education-num', 'martial-
     'income']
             
 CATEGORICAL_COLUMNS = ['workclass', 'education', 'martial-status', 'occupation', 'relationship',
-    'race', 'sex', 'native-country', 'income'] 
-
-
-
-class Parameters:
-    def __init__(self):
-        pass
+    'race', 'sex', 'native-country', 'income']
 
 
 def clean_data(df):
@@ -61,9 +56,6 @@ def get_hyperd_data(ws=None):
     
     train_ds = None
     test_ds = None
-    
-    if ws is None:
-        ws = Workspace.from_config()
 
     if 'adult_train_hyperd' in ws.datasets.keys() and 'adult_test_hyperd' in ws.datasets.keys():
         print('Loading datasets from workspace ...')
@@ -89,51 +81,44 @@ def get_hyperd_data(ws=None):
 
 def main():
 
-    #parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser()
 
-    #parser.add_argument('--n_estimators', type=int, default=10, help="Number of estimators in the ensemble")
-    #parser.add_argument('--max_depth', type=int, default=5, help="Maximum depth of the trees involved")
-    #parser.add_argument('--max_features', type=int, default=14, help="Maximum number of features per tree")
-    #parser.add_argument('--min_samples_leaf', type=float, default=0.1, help="Minimum number of samples per leaf")
+    parser.add_argument('--n_estimators', type=int, default=10, help="Number of estimators in the ensemble")
+    parser.add_argument('--max_depth', type=int, default=5, help="Maximum depth of the trees involved")
+    parser.add_argument('--max_features', type=int, default=14, help="Maximum number of features per tree")
+    parser.add_argument('--min_samples_leaf', type=float, default=0.1, help="Minimum number of samples per leaf")
 
-    #args = parser.parse_args()
-    args = Parameters()
-    args.n_estimators = 30
-    args.max_depth = 5
-    args.max_features = 14
-    args.min_samples_leaf = 0.1
-
-    #run = Run.get_context()
+    args = parser.parse_args()
+    
+    run = Run.get_context()
 
     # Read parameters provided by HyperDrive run
-    #run.log("Number of estimators:", np.int(args.n_estimators))
-    #run.log("Max depth:", np.int(args.max_depth))
-    #run.log("Max features:", np.int(args.max_features))
-    #run.log("Min samples leaf:", np.float(args.min_samples_leaf))
+    run.log("Number of estimators", int(args.n_estimators))
+    run.log("Max depth", int(args.max_depth))
+    run.log("Max features", int(args.max_features))
+    run.log("Min samples leaf", float(args.min_samples_leaf))
     
-    # Download data and clean it
-    #ds = TabularDatasetFactory.from_delimited_files('https://automlsamplenotebookdata.blob.core.windows.net/automl-sample-notebook-data/bankmarketing_train.csv')
-    #x, y = clean_data(ds)
-    
-    train_ds, _ = get_hyperd_data()
+    print('Trying to get data ...')
+    ws = run.experiment.workspace
+    train_ds, _ = get_hyperd_data(ws)
     train_df = train_ds.to_pandas_dataframe()
     X_train = train_df.drop(['income'], axis=1).to_numpy()
     y_train = train_df['income'].to_numpy()
     
-    # Fit logistic regression model to data in training set
+    print('Running cross validation ...')
+    
     clf = sklearn.ensemble.RandomForestClassifier(n_estimators=args.n_estimators,
         max_depth=args.max_depth, max_features=args.max_features,
         min_samples_leaf=args.min_samples_leaf, random_state=42)
     
-    cv_results = cross_validate(clf, X_train, y_train, cv=5, scoring='accuracy')
-    print(cv_results['test_score'].mean())
+    model_for_all_data = clf.fit(X_train, y_train)
+    joblib.dump(model_for_all_data, './outputs/model.pkl')
     
-    #run.log("accuracy", np.float(cv_results['test_score'].mean()))
+    cv_results = cross_validate(clf, X_train, y_train, cv=5, scoring='accuracy', verbose=2)
+    
+    run.log("accuracy", float(cv_results['test_score'].mean()))
 
-    # Save model for potential later use
-    #joblib.dump(model_all_data, './outputs/model.pkl')
 
-          
 if __name__ == '__main__':
     main()
 
