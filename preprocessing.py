@@ -35,6 +35,8 @@ COMPUTE_CLUSTER_NAME = 'ndeg-prj3-clust'
 HYPERDRIVE_MODEL_FILE = 'best_model_hyperdrive.pkl'
 HYPERDRIVE_MODEL_PATH = './outputs/' + HYPERDRIVE_MODEL_FILE
 
+AUTOML_MODEL_FILE = 'best_model_automl.pkl'
+AUTOML_MODEL_PATH = './outputs/' + AUTOML_MODEL_FILE
 
 
 def clean_data(df):
@@ -70,7 +72,7 @@ def get_workspace():
     return ws
 
 
-def get_hyperd_data(ws=None):
+def get_data(ws=None, suffix='automl'):
     
     train_ds = None
     test_ds = None
@@ -78,10 +80,17 @@ def get_hyperd_data(ws=None):
     if ws is None:
         ws = get_workspace()
 
-    if 'adult_train_hyperd' in ws.datasets.keys() and 'adult_test_hyperd' in ws.datasets.keys():
+    label_encode=True
+    if suffix == 'automl':
+        label_encode=False
+        
+    train_name = f'adult_train_{suffix}'
+    test_name = f'adult_test_{suffix}'
+        
+    if train_name in ws.datasets.keys() and test_name in ws.datasets.keys():
         print('Loading datasets from workspace ...')
-        train_ds = ws.datasets['adult_train_hyperd']
-        test_ds = ws.datasets['adult_test_hyperd']
+        train_ds = ws.datasets[train_name]
+        test_ds = ws.datasets[test_name]
  
     else:
         print('Loading datasets from web and registering them in workspace ...')
@@ -90,14 +99,14 @@ def get_hyperd_data(ws=None):
         test_file = 'https://archive.ics.uci.edu/ml/machine-learning-databases/adult/adult.test'
         test_file_resp = requests.get(test_file)
         test_text = '\n'.join(test_file_resp.text.split('\n')[1:]) # remove first line
-        train_df, test_df = preprocess_data(StringIO(train_file_resp.text), StringIO(test_text), label_encode=True)
+        train_df, test_df = preprocess_data(StringIO(train_file_resp.text), StringIO(test_text), label_encode)
         datastore = Datastore.get(ws, 'workspaceblobstore')
-        if 'adult_train_hyperd' not in ws.datasets.keys():
+        if train_name not in ws.datasets.keys():
             train_ds = Dataset.Tabular.register_pandas_dataframe(train_df,
-                datastore, 'adult_train_hyperd', show_progress=True)
-        if 'adult_test_hyperd' not in ws.datasets.keys():
+                datastore, train_name, show_progress=True)
+        if test_name not in ws.datasets.keys():
             test_ds = Dataset.Tabular.register_pandas_dataframe(test_df,
-                datastore, 'adult_test_hyperd', show_progress=True)
+                datastore, test_name, show_progress=True)
             
     return train_ds, test_ds
 
@@ -136,7 +145,7 @@ def run_hyperd():
     
     ws = get_workspace()
 
-    exp = Experiment(workspace=ws, name="hyperdrive")
+    exp = Experiment(workspace=ws, name='adult-hyperd')
     run = exp.start_logging()
 
     ps = RandomParameterSampling({
@@ -264,6 +273,44 @@ def test_deployed_hyperd_model(test_ds, row):
     response = requests.post(scoring_uri, data=data, headers=headers)
     
     print('label:', test_label, 'prediction:', int(response.json()))
+ 
+    
+def run_automl():
+    
+    from azureml.train.automl import AutoMLConfig
+
+    ws = get_workspace()
+    
+    exp = Experiment(workspace=ws, name='adult-automl')
+    run = exp.start_logging()
+    
+    compute_cluster = get_compute_cluster()
+    
+    train_ds, _ = get_data()
+    
+    automl_config = AutoMLConfig(
+        experiment_timeout_minutes=30,
+        task='classification',
+        primary_metric='accuracy',
+        training_data=train_ds,
+        label_column_name='income',
+        n_cross_validations=5,
+        compute_target=compute_cluster)
+    
+    automl_run = exp.submit(automl_config)
+    RunDetails(automl_run).show()
+    automl_run.wait_for_completion(show_output=True)
+    
+    best_run, best_model = automl_run.get_output()
+    best_run_metrics = best_run.get_metrics()
+
+    print('Best run ID:', best_run.id)
+    print('Accuracy:', best_run_metrics['accuracy'])
+
+    joblib.dump(best_model, AUTOML_MODEL_PATH)
+    
+    
+
 
 
 def main():
@@ -286,7 +333,7 @@ def main():
     run.log('min samples leaf', float(args.min_samples_leaf))
 
     ws = run.experiment.workspace
-    train_ds, _ = get_hyperd_data(ws)
+    train_ds, _ = get_data(ws, suffix='hyperd')
     train_df = train_ds.to_pandas_dataframe()
     X_train = train_df.drop(['income'], axis=1).to_numpy()
     y_train = train_df['income'].to_numpy()
