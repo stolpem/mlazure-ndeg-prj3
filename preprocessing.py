@@ -236,7 +236,7 @@ def register_and_deploy_hyperd_model():
     print(service.get_logs())
 
 
-def cast_test_input(test_input):
+def cast_hyperd_test_input(test_input):
     cast_test_input = {}
     cast_test_input['age'] = int(test_input['age'])
     cast_test_input['workclass'] = int(test_input['workclass'])
@@ -255,14 +255,11 @@ def cast_test_input(test_input):
     return cast_test_input
 
 
-def create_test_input(test_ds, row, cast=False):
+def create_hyperd_test_input(test_ds, row):
     test_df = test_ds.to_pandas_dataframe().iloc[row]
     test_label = int(test_df['income'])
     del test_df['income']
-    if cast:
-        test_input = cast_test_input(test_df)
-    else:
-        test_input = test_df
+    test_input = cast_test_input(test_df)
     return test_input, test_label
     
 
@@ -276,7 +273,7 @@ def test_deployed_hyperd_model(test_ds, row):
 
     headers = {"Content-Type": "application/json"}
     headers['Authorization'] = f'Bearer {key}'
-    test_input, test_label = create_test_input(test_ds, row)
+    test_input, test_label = create_hyperd_test_input(test_ds, row)
     data = json.dumps(test_input)
     response = requests.post(scoring_uri, data=data, headers=headers)
     
@@ -346,15 +343,43 @@ def register_and_deploy_automl_model():
         entry_script='./predict_automl.py',
         )
 
-    deployment_config = AciWebservice.deploy_configuration(
-        cpu_cores=0.5, memory_gb=1, auth_enabled=True
-        )
+    #deployment_config = AciWebservice.deploy_configuration(
+    #    cpu_cores=0.5, memory_gb=1, auth_enabled=True
+    #    )
+    deployment_config = LocalWebservice.deploy_configuration(port=6788)
 
     service = Model.deploy(ws, 'adult-automl-service', [model],
         inference_config, deployment_config, overwrite=True)
     service.wait_for_deployment(show_output=True)
 
     print(service.get_logs())
+
+    
+def cast_automl_test_input(test_input):
+    cast_test_input = {}
+    cast_test_input['age'] = int(test_input['age'])
+    cast_test_input['workclass'] = str(test_input['workclass'])
+    cast_test_input['fnlwgt'] = int(test_input['fnlwgt'])    
+    cast_test_input['education'] = str(test_input['education'])
+    cast_test_input['education-num'] = int(test_input['education-num'])
+    cast_test_input['martial-status'] = str(test_input['martial-status'])
+    cast_test_input['occupation'] = str(test_input['occupation'])
+    cast_test_input['relationship'] = str(test_input['relationship'])
+    cast_test_input['race'] = str(test_input['race'])
+    cast_test_input['sex'] = str(test_input['sex'])
+    cast_test_input['capital-gain'] = int(test_input['capital-gain'])
+    cast_test_input['capital-loss'] = int(test_input['capital-loss'])
+    cast_test_input['hours-per-week'] = int(test_input['hours-per-week'])
+    cast_test_input['native-country'] = str(test_input['native-country'])
+    return cast_test_input
+
+
+def create_automl_test_input(test_ds, row):
+    test_df = test_ds.to_pandas_dataframe().iloc[row]
+    test_label = test_df['income']
+    del test_df['income']
+    test_input = cast_automl_test_input(test_df)
+    return test_input, test_label
 
     
 def test_deployed_automl_model(test_ds, row):
@@ -367,11 +392,13 @@ def test_deployed_automl_model(test_ds, row):
 
     headers = {"Content-Type": "application/json"}
     headers['Authorization'] = f'Bearer {key}'
-    test_input, test_label = create_test_input(test_ds, row)
+    test_input, test_label = create_automl_test_input(test_ds, row)
     data = json.dumps(test_input)
     response = requests.post(scoring_uri, data=data, headers=headers)
     
-    print('label:', test_label, 'prediction:', int(response.json()))
+    print(service.get_logs())
+    
+    print('label:', test_label, 'prediction:', str(response.json()))
     
 
 def main():

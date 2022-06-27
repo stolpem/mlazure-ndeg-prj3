@@ -20,4 +20,5 @@ def run(data):
     for key in input_data.keys():
         input_data_array.append(input_data[key])
     prediction = model.predict(np.array(input_data_array, ndmin=2))
+    print(prediction)
     return int(prediction[0])
