@@ -12,7 +12,7 @@ from sklearn.model_selection import cross_validate
 from sklearn.metrics import accuracy_score
 import sklearn.ensemble
 
-from azureml.core import Datastore, Environment, ScriptRunConfig
+from azureml.core import Datastore, Environment, ScriptRunConfig, Webservice
 from azureml.core.workspace import Workspace
 from azureml.core.experiment import Experiment
 from azureml.core.dataset import Dataset
@@ -20,7 +20,7 @@ from azureml.core.compute import AmlCompute, ComputeTarget
 from azureml.core.compute_target import ComputeTargetException
 from azureml.core.run import Run
 from azureml.core.model import Model, InferenceConfig
-from azureml.core.webservice import LocalWebservice
+from azureml.core.webservice import LocalWebservice, AciWebservice
 
 
 COLUMNS = ['age', 'workclass', 'fnlwgt', 'education', 'education-num', 'martial-status', 'occupation',
@@ -125,7 +125,7 @@ def get_environment():
     return sklearn_env
 
 
-def run_hyperdrive():
+def run_hyperd():
 
     from azureml.train.hyperdrive.run import PrimaryMetricGoal
     from azureml.train.hyperdrive.policy import BanditPolicy
@@ -185,7 +185,7 @@ def run_hyperdrive():
     best_run.download_file('outputs/model.pkl', HYPERDRIVE_MODEL_PATH, _validate_checksum=True)
     
 
-def test_local_model(test_ds):
+def test_local_hyperd_model(test_ds):
     model = joblib.load(HYPERDRIVE_MODEL_PATH)
     test_df = test_ds.to_pandas_dataframe()
     X_test = test_df.drop(['income'], axis=1).to_numpy()
@@ -196,11 +196,12 @@ def test_local_model(test_ds):
     return accuracy
 
 
-def register_and_deploy_hyperdrive_model():
+def register_and_deploy_hyperd_model():
     
     ws = get_workspace()
     
-    model = Model.register(ws, model_name='adult-model-hyperd', model_path=HYPERDRIVE_MODEL_PATH)
+    model = Model.register(ws, model_name='adult-hyperd-model',
+        model_path=HYPERDRIVE_MODEL_PATH)
 
     sklearn_env = get_environment()
 
@@ -210,10 +211,12 @@ def register_and_deploy_hyperdrive_model():
         entry_script='./predict.py',
         )
 
-    deployment_config = LocalWebservice.deploy_configuration(port=6789)
+    deployment_config = AciWebservice.deploy_configuration(
+        cpu_cores=0.5, memory_gb=1, auth_enabled=True
+        )
 
-    service = Model.deploy(ws, 'myservice', [model], inference_config, deployment_config,
-        overwrite=True)
+    service = Model.deploy(ws, 'adult-hyperd-service', [model],
+        inference_config, deployment_config, overwrite=True)
     service.wait_for_deployment(show_output=True)
 
     print(service.get_logs())
@@ -246,11 +249,20 @@ def create_test_input(test_ds, row):
     return test_input, test_label
     
 
-def test_deployed_model(test_ds, row):
+def test_deployed_hyperd_model(test_ds, row):
+    
+    ws = get_workspace()
+    
+    service = Webservice(workspace=ws, name='adult-hyperd-service')
+    scoring_uri = service.scoring_uri
+    key, _ = service.get_keys()
+
     headers = {"Content-Type": "application/json"}
+    headers['Authorization'] = f'Bearer {key}'
     test_input, test_label = create_test_input(test_ds, row)
     data = json.dumps(test_input)
-    response = requests.post('http://localhost:6789', data=data, headers=headers)
+    response = requests.post(scoring_uri, data=data, headers=headers)
+    
     print('label:', test_label, 'prediction:', int(response.json()))
 
 
