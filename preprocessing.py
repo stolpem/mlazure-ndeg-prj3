@@ -21,13 +21,6 @@ from azureml.core.compute_target import ComputeTargetException
 from azureml.core.run import Run
 from azureml.core.model import Model, InferenceConfig
 from azureml.core.webservice import LocalWebservice
-from azureml.train.sklearn import SKLearn
-from azureml.train.hyperdrive.run import PrimaryMetricGoal
-from azureml.train.hyperdrive.policy import BanditPolicy
-from azureml.train.hyperdrive.sampling import RandomParameterSampling
-from azureml.train.hyperdrive.runconfig import HyperDriveConfig
-from azureml.train.hyperdrive.parameter_expressions import choice, uniform
-from azureml.widgets import RunDetails
 
 
 COLUMNS = ['age', 'workclass', 'fnlwgt', 'education', 'education-num', 'martial-status', 'occupation',
@@ -77,12 +70,13 @@ def get_workspace():
     return ws
 
 
-def get_hyperd_data():
+def get_hyperd_data(ws=None):
     
     train_ds = None
     test_ds = None
 
-    ws = get_workspace()
+    if ws is None:
+        ws = get_workspace()
 
     if 'adult_train_hyperd' in ws.datasets.keys() and 'adult_test_hyperd' in ws.datasets.keys():
         print('Loading datasets from workspace ...')
@@ -119,7 +113,8 @@ def get_compute_cluster():
         compute_config = AmlCompute.provisioning_configuration(vm_size='STANDARD_D2_V2',# for GPU, use "STANDARD_NC6"
                                                                #vm_priority = 'lowpriority', # optional
                                                                max_nodes=4)
-    compute_cluster = ComputeTarget.create(ws, COMPUTE_CLUSTER_NAME, compute_config)
+        compute_cluster = ComputeTarget.create(ws, COMPUTE_CLUSTER_NAME, compute_config)
+    
     compute_cluster.wait_for_completion(show_output=True)
 
     return compute_cluster
@@ -130,8 +125,15 @@ def get_environment():
     return sklearn_env
 
 
-def run_hyperdrive(ws):
+def run_hyperdrive():
 
+    from azureml.train.hyperdrive.run import PrimaryMetricGoal
+    from azureml.train.hyperdrive.policy import BanditPolicy
+    from azureml.train.hyperdrive.sampling import RandomParameterSampling
+    from azureml.train.hyperdrive.runconfig import HyperDriveConfig
+    from azureml.train.hyperdrive.parameter_expressions import choice, uniform
+    from azureml.widgets import RunDetails
+    
     ws = get_workspace()
 
     exp = Experiment(workspace=ws, name="hyperdrive")
@@ -150,7 +152,7 @@ def run_hyperdrive(ws):
     if "training" not in os.listdir():
         os.mkdir("./training")
 
-    compute_cluster = get_compute_cluster(ws)
+    compute_cluster = get_compute_cluster()
     sklearn_env = get_environment()
 
     src = ScriptRunConfig(
@@ -181,12 +183,10 @@ def run_hyperdrive(ws):
     print('Parameters:', parameter_values)
 
     best_run.download_file('outputs/model.pkl', HYPERDRIVE_MODEL_PATH, _validate_checksum=True)
-    best_model = joblib.load(HYPERDRIVE_MODEL_PATH)
+    
 
-    return best_model
-
-
-def test_local_model(model, test_ds):
+def test_local_model(test_ds):
+    model = joblib.load(HYPERDRIVE_MODEL_PATH)
     test_df = test_ds.to_pandas_dataframe()
     X_test = test_df.drop(['income'], axis=1).to_numpy()
     y_test = test_df['income'].to_numpy()
@@ -218,8 +218,6 @@ def register_and_deploy_hyperdrive_model():
 
     print(service.get_logs())
 
-    return service
-
 
 def cast_test_input(test_input):
     cast_test_input = {}
@@ -248,15 +246,12 @@ def create_test_input(test_ds, row):
     return test_input, test_label
     
 
-def test_deployed_model(service, test_ds, row):
-
-    uri = service.scoring_uri
-    requests.get("http://localhost:6789")
+def test_deployed_model(test_ds, row):
     headers = {"Content-Type": "application/json"}
     test_input, test_label = create_test_input(test_ds, row)
     data = json.dumps(test_input)
-    response = requests.post(uri, data=data, headers=headers)
-    print(int(response.json()[0]))
+    response = requests.post('http://localhost:6789', data=data, headers=headers)
+    print('label:', test_label, 'prediction:', int(response.json()))
 
 
 def main():
