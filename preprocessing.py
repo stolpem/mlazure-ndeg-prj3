@@ -129,9 +129,14 @@ def get_compute_cluster():
     return compute_cluster
 
 
-def get_environment():
-    sklearn_env = Environment.from_conda_specification(name='sklearn-env', file_path='conda_dependencies.yml')
-    return sklearn_env
+def get_hyperd_environment():
+    hyperd_env = Environment.from_conda_specification(name='hyperd-env', file_path='conda_dependencies_hyperd.yml')
+    return hyperd_env
+
+
+def get_automl_environment():
+    automl_env = Environment.from_conda_specification(name='automl-env', file_path='conda_dependencies_automl.yml')
+    return automl_env
 
 
 def run_hyperd():
@@ -162,13 +167,13 @@ def run_hyperd():
         os.mkdir("./training")
 
     compute_cluster = get_compute_cluster()
-    sklearn_env = get_environment()
+    hyperd_env = get_hyperd_environment()
 
     src = ScriptRunConfig(
         source_directory=".",
         script="preprocessing.py",
         compute_target=compute_cluster,
-        environment=sklearn_env
+        environment=hyperd_env
     )
 
     hyperdrive_config = HyperDriveConfig(run_config=src,
@@ -212,12 +217,12 @@ def register_and_deploy_hyperd_model():
     model = Model.register(ws, model_name='adult-hyperd-model',
         model_path=HYPERDRIVE_MODEL_PATH)
 
-    sklearn_env = get_environment()
+    hyperd_env = get_hyperd_environment()
 
     inference_config = InferenceConfig(
-        environment=sklearn_env,
+        environment=hyperd_env,
         source_directory='./source_dir',
-        entry_script='./predict.py',
+        entry_script='./predict_hyperd.py',
         )
 
     deployment_config = AciWebservice.deploy_configuration(
@@ -250,11 +255,14 @@ def cast_test_input(test_input):
     return cast_test_input
 
 
-def create_test_input(test_ds, row):
+def create_test_input(test_ds, row, cast=False):
     test_df = test_ds.to_pandas_dataframe().iloc[row]
     test_label = int(test_df['income'])
     del test_df['income']
-    test_input = cast_test_input(test_df)
+    if cast:
+        test_input = cast_test_input(test_df)
+    else:
+        test_input = test_df
     return test_input, test_label
     
 
@@ -278,6 +286,7 @@ def test_deployed_hyperd_model(test_ds, row):
 def run_automl():
     
     from azureml.train.automl import AutoMLConfig
+    from azureml.widgets import RunDetails
 
     ws = get_workspace()
     
@@ -309,9 +318,61 @@ def run_automl():
 
     joblib.dump(best_model, AUTOML_MODEL_PATH)
     
+
+def test_local_automl_model(test_ds):
+    model = joblib.load(AUTOML_MODEL_PATH)
+    print(model)
+    test_df = test_ds.to_pandas_dataframe()
+    X_test = test_df.drop(['income'], axis=1)
+    y_test = test_df['income']
+    y_pred = model.predict(X_test)
+    accuracy = accuracy_score(y_test, y_pred)
+    print(accuracy)
+    return accuracy
+
+
+def register_and_deploy_automl_model():
     
+    ws = get_workspace()
+    
+    model = Model.register(ws, model_name='adult-automl-model',
+        model_path=AUTOML_MODEL_PATH)
 
+    automl_env = get_automl_environment()
 
+    inference_config = InferenceConfig(
+        environment=automl_env,
+        source_directory='./source_dir',
+        entry_script='./predict_automl.py',
+        )
+
+    deployment_config = AciWebservice.deploy_configuration(
+        cpu_cores=0.5, memory_gb=1, auth_enabled=True
+        )
+
+    service = Model.deploy(ws, 'adult-automl-service', [model],
+        inference_config, deployment_config, overwrite=True)
+    service.wait_for_deployment(show_output=True)
+
+    print(service.get_logs())
+
+    
+def test_deployed_automl_model(test_ds, row):
+    
+    ws = get_workspace()
+    
+    service = Webservice(workspace=ws, name='adult-automl-service')
+    scoring_uri = service.scoring_uri
+    key, _ = service.get_keys()
+
+    headers = {"Content-Type": "application/json"}
+    headers['Authorization'] = f'Bearer {key}'
+    test_input, test_label = create_test_input(test_ds, row)
+    data = json.dumps(test_input)
+    response = requests.post(scoring_uri, data=data, headers=headers)
+    
+    print('label:', test_label, 'prediction:', int(response.json()))
+    
 
 def main():
 
