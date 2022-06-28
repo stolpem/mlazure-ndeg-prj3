@@ -1,6 +1,7 @@
 import json
 import os.path
 
+import pandas as pd
 import numpy as np
 import joblib
 
@@ -16,9 +17,9 @@ def init():
 def run(data):
     input_data = json.loads(data)
     print(f'received data {input_data}')
-    input_data_array = []
-    for key in input_data.keys():
-        input_data_array.append(input_data[key])
-    prediction = model.predict(np.array(input_data_array, ndmin=2))
-    print(prediction)
-    return int(prediction[0])
+    input_data_pd = {}
+    for key in input_data:
+        input_data_pd[key] = [input_data[key]]
+    input_data_df = pd.DataFrame(input_data_pd)
+    prediction = model.predict(input_data_df)
+    return str(prediction[0])

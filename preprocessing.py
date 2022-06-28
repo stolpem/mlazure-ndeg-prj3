@@ -277,7 +277,7 @@ def test_deployed_hyperd_model(test_ds, row):
     data = json.dumps(test_input)
     response = requests.post(scoring_uri, data=data, headers=headers)
     
-    print('label:', test_label, 'prediction:', int(response.json()))
+    print('label:', test_label, ', prediction:', int(response.json()))
  
     
 def run_automl():
@@ -343,16 +343,18 @@ def register_and_deploy_automl_model():
         entry_script='./predict_automl.py',
         )
 
-    #deployment_config = AciWebservice.deploy_configuration(
-    #    cpu_cores=0.5, memory_gb=1, auth_enabled=True
-    #    )
-    deployment_config = LocalWebservice.deploy_configuration(port=6788)
+    deployment_config = AciWebservice.deploy_configuration(
+        cpu_cores=0.5, memory_gb=1, auth_enabled=True
+        )
+    #deployment_config = LocalWebservice.deploy_configuration(port=6788)
 
     service = Model.deploy(ws, 'adult-automl-service', [model],
         inference_config, deployment_config, overwrite=True)
     service.wait_for_deployment(show_output=True)
 
     print(service.get_logs())
+    
+    return service
 
     
 def cast_automl_test_input(test_input):
@@ -382,11 +384,12 @@ def create_automl_test_input(test_ds, row):
     return test_input, test_label
 
     
-def test_deployed_automl_model(test_ds, row):
+def test_deployed_automl_model(test_ds, row, service=None):
     
     ws = get_workspace()
     
-    service = Webservice(workspace=ws, name='adult-automl-service')
+    if service is None:
+        service = Webservice(workspace=ws, name='adult-automl-service')
     scoring_uri = service.scoring_uri
     key, _ = service.get_keys()
 
@@ -396,9 +399,7 @@ def test_deployed_automl_model(test_ds, row):
     data = json.dumps(test_input)
     response = requests.post(scoring_uri, data=data, headers=headers)
     
-    print(service.get_logs())
-    
-    print('label:', test_label, 'prediction:', str(response.json()))
+    print('label:', test_label, ', prediction:', str(response.json()))
     
 
 def main():
