@@ -9,7 +9,7 @@ import pandas as pd
 import numpy as np
 from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import cross_validate
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import accuracy_score, confusion_matrix
 import sklearn.ensemble
 
 from azureml.core import Datastore, Environment, ScriptRunConfig, Webservice
@@ -205,9 +205,10 @@ def test_local_hyperd_model(test_ds):
     X_test = test_df.drop(['income'], axis=1).to_numpy()
     y_test = test_df['income'].to_numpy()
     y_pred = model.predict(X_test)
+    cm = confusion_matrix(y_test, y_pred)
     accuracy = accuracy_score(y_test, y_pred)
     print(accuracy)
-    return accuracy
+    return pd.DataFrame(cm).style.background_gradient(cmap='Blues', low=0, high=0.9)
 
 
 def register_and_deploy_hyperd_model():
@@ -259,7 +260,7 @@ def create_hyperd_test_input(test_ds, row):
     test_df = test_ds.to_pandas_dataframe().iloc[row]
     test_label = int(test_df['income'])
     del test_df['income']
-    test_input = cast_test_input(test_df)
+    test_input = cast_hyperd_test_input(test_df)
     return test_input, test_label
     
 
@@ -323,9 +324,10 @@ def test_local_automl_model(test_ds):
     X_test = test_df.drop(['income'], axis=1)
     y_test = test_df['income']
     y_pred = model.predict(X_test)
+    cm = confusion_matrix(y_test, y_pred)
     accuracy = accuracy_score(y_test, y_pred)
     print(accuracy)
-    return accuracy
+    return pd.DataFrame(cm).style.background_gradient(cmap='Blues', low=0, high=0.9)
 
 
 def register_and_deploy_automl_model():
@@ -346,7 +348,6 @@ def register_and_deploy_automl_model():
     deployment_config = AciWebservice.deploy_configuration(
         cpu_cores=0.5, memory_gb=1, auth_enabled=True
         )
-    #deployment_config = LocalWebservice.deploy_configuration(port=6788)
 
     service = Model.deploy(ws, 'adult-automl-service', [model],
         inference_config, deployment_config, overwrite=True)
