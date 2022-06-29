@@ -1,3 +1,6 @@
+
+# Import needed packages and functions
+
 import argparse
 import os
 from io import StringIO
@@ -22,56 +25,68 @@ from azureml.core.run import Run
 from azureml.core.model import Model, InferenceConfig
 from azureml.core.webservice import LocalWebservice, AciWebservice
 
-
+# List of the column / feature names for the used Adult dataset
 COLUMNS = ['age', 'workclass', 'fnlwgt', 'education', 'education-num', 'martial-status', 'occupation',
     'relationship', 'race', 'sex', 'capital-gain', 'capital-loss', 'hours-per-week', 'native-country',
     'income']
-            
+
+# List of the names of categorical features
 CATEGORICAL_COLUMNS = ['workclass', 'education', 'martial-status', 'occupation', 'relationship',
     'race', 'sex', 'native-country', 'income']
 
+# Name of the compute cluster to be created
 COMPUTE_CLUSTER_NAME = 'ndeg-prj3-clust'
 
+# Name and path of the best model found by hyperdrive
 HYPERDRIVE_MODEL_FILE = 'best_model_hyperdrive.pkl'
 HYPERDRIVE_MODEL_PATH = './outputs/' + HYPERDRIVE_MODEL_FILE
 
+# Name and path of the best model found by AutoML
 AUTOML_MODEL_FILE = 'best_model_automl.pkl'
 AUTOML_MODEL_PATH = './outputs/' + AUTOML_MODEL_FILE
 
 
+# Function for cleaning the data
 def clean_data(df):
-    df = df.replace(to_replace='\\?', value=np.nan, regex=True)
-    df = df.replace(to_replace='\s+', value='', regex=True)
-    df = df.replace(to_replace='\\.', value='', regex=True)
+    df = df.replace(to_replace='\\?', value=np.nan, regex=True) # Replace ? by np.nan for dropping missing values
+    df = df.replace(to_replace='\s+', value='', regex=True)     # Remove white space in categorical feature values
+    df = df.replace(to_replace='\\.', value='', regex=True)     # Remove dots from categorical feature values
     for column in CATEGORICAL_COLUMNS:
-        df[column] = df[column].astype(str)
+        df[column] = df[column].astype(str)  # Turn the values of all categorical columns into strings
     return df
 
 
+# Function for replacing all categorical values by integers
 def label_encode_data(train_df, test_df):
     for column in CATEGORICAL_COLUMNS:
         label_encoder = LabelEncoder()
-        label_encoder.fit(train_df[column])
-        train_df[column] = label_encoder.transform(train_df[column])
-        test_df[column] = label_encoder.transform(test_df[column])
+        label_encoder.fit(train_df[column]) # Fit the encoder on the training data
+        train_df[column] = label_encoder.transform(train_df[column]) # Apply the fitted encoder to the training data
+        test_df[column] = label_encoder.transform(test_df[column])   # Apply the fitted encoder to the test data
     return train_df, test_df
 
 
+# Function for preprocessing the data
 def preprocess_data(train_csv_file, test_csv_file, label_encode=False):
+    # Turn train and test data from CSV into pandas dataframes 
     train_df = pd.read_csv(train_csv_file, delimiter=',', header=None, names=COLUMNS)
     test_df = pd.read_csv(test_csv_file, delimiter=',', header=None, names=COLUMNS)
+    # Clean train and test data
     train_df = clean_data(train_df)
     test_df = clean_data(test_df)
     if label_encode:
+        # Encode categorical values as integers if requested
         train_df, test_df = label_encode_data(train_df, test_df)
     return train_df, test_df
 
 
+# Helper function for getting the current Azure workspace
 def get_workspace():
     ws = Workspace.from_config()
     return ws
 
 
+# Function for getting and installing the Adult dataset from UCI
 def get_data(ws=None, suffix='automl'):
     
     train_ds = None
@@ -82,29 +97,36 @@ def get_data(ws=None, suffix='automl'):
 
     label_encode=True
     if suffix == 'automl':
-        label_encode=False
+        label_encode=False # label encoding not needed for AutoML
         
+    # Construct names of the training and test set based on the provided suffix ("hyperd" or "automl")
     train_name = f'adult_train_{suffix}'
     test_name = f'adult_test_{suffix}'
         
     if train_name in ws.datasets.keys() and test_name in ws.datasets.keys():
+        # If the data is already registered in Azure, load it from the workspace
         print('Loading datasets from workspace ...')
         train_ds = ws.datasets[train_name]
         test_ds = ws.datasets[test_name]
  
     else:
+        # Otherwise load it from the web and register it in the workspace
         print('Loading datasets from web and registering them in workspace ...')
         train_file = 'https://archive.ics.uci.edu/ml/machine-learning-databases/adult/adult.data'
-        train_file_resp = requests.get(train_file)
+        train_file_resp = requests.get(train_file) # download training data from URL
         test_file = 'https://archive.ics.uci.edu/ml/machine-learning-databases/adult/adult.test'
-        test_file_resp = requests.get(test_file)
-        test_text = '\n'.join(test_file_resp.text.split('\n')[1:]) # remove first line
+        test_file_resp = requests.get(test_file) # download test data from URL
+        test_text = '\n'.join(test_file_resp.text.split('\n')[1:]) # remove first line from test data
+        # Preprocess the data
         train_df, test_df = preprocess_data(StringIO(train_file_resp.text), StringIO(test_text), label_encode)
+        # Get the blob store
         datastore = Datastore.get(ws, 'workspaceblobstore')
         if train_name not in ws.datasets.keys():
+            # register the training set if not already done so
             train_ds = Dataset.Tabular.register_pandas_dataframe(train_df,
                 datastore, train_name, show_progress=True)
         if test_name not in ws.datasets.keys():
+            # register the test set if not already done so
             test_ds = Dataset.Tabular.register_pandas_dataframe(test_df,
                 datastore, test_name, show_progress=True)
             
@@ -320,7 +342,8 @@ def run_automl():
 
 def show_and_test_local_automl_model(test_ds):
     model = joblib.load(AUTOML_MODEL_PATH)
-    print(model)
+    for step in model.steps:
+        print(step)
     test_df = test_ds.to_pandas_dataframe()
     X_test = test_df.drop(['income'], axis=1)
     y_test = test_df['income']
