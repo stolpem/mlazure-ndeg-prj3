@@ -181,7 +181,7 @@ def run_hyperd():
         policy=policy,
         primary_metric_name='accuracy',
         primary_metric_goal=PrimaryMetricGoal.MAXIMIZE,
-        max_total_runs=20,
+        max_total_runs=100,
         max_concurrent_runs=3)
 
     hyperdrive_run = exp.submit(config=hyperdrive_config)
