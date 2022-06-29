@@ -133,34 +133,39 @@ def get_data(ws=None, suffix='automl'):
     return train_ds, test_ds
 
 
+# Function for getting access to an existing compute cluster or creating one
 def get_compute_cluster():
 
     ws = get_workspace()
 
     try:
+        # Try to find an existing cluster and return it if it exists
         compute_cluster = ComputeTarget(workspace=ws, name=COMPUTE_CLUSTER_NAME)
         print('Found existing cluster, use it.')
     except ComputeTargetException:
+        # Otherwise create a new compute cluster with four nodes
         compute_config = AmlCompute.provisioning_configuration(vm_size='STANDARD_D2_V2',# for GPU, use "STANDARD_NC6"
                                                                #vm_priority = 'lowpriority', # optional
                                                                max_nodes=4)
         compute_cluster = ComputeTarget.create(ws, COMPUTE_CLUSTER_NAME, compute_config)
-    
-    compute_cluster.wait_for_completion(show_output=True)
+        compute_cluster.wait_for_completion(show_output=True)
 
     return compute_cluster
 
 
+# Get an environment for training and running scikit-learn models on remote clusters 
 def get_hyperd_environment():
     hyperd_env = Environment.from_conda_specification(name='hyperd-env', file_path='conda_dependencies_hyperd.yml')
     return hyperd_env
 
 
+# Get an environment for training and running AutoML models on remote clusters
 def get_automl_environment():
     automl_env = Environment.from_conda_specification(name='automl-env', file_path='conda_dependencies_automl.yml')
     return automl_env
 
 
+# Run a hyperparameter optimization using Hyperdrive
 def run_hyperd():
 
     from azureml.train.hyperdrive.run import PrimaryMetricGoal
@@ -175,22 +180,26 @@ def run_hyperd():
     exp = Experiment(workspace=ws, name='adult-hyperd')
     run = exp.start_logging()
 
+    # Setup a random parameter sampling for random forest models
     ps = RandomParameterSampling({
-        '--n_estimators': choice(range(2, 100)),
-        '--max_depth': choice(range(2, 10)),
-        '--max_features': choice(range(1, 14)),
-        '--min_samples_leaf': uniform(0.01, 0.1)
+        '--n_estimators': choice(range(2, 100)),  # number of decision trees in the forst
+        '--max_depth': choice(range(2, 10)),      # maximum depth of the involved decision trees
+        '--max_features': choice(range(1, 14)),   # maximum number of features randomly chosen per decision tree
+        '--min_samples_leaf': uniform(0.01, 0.1)  # minimum fraction of samples per leaf
     })
 
+    # Choose a bandit policy for early stopping
     policy = BanditPolicy(evaluation_interval=2, slack_factor=0.1) # evaluate performance every two runs,
                                                                 # stop if lower than 1% point difference to
                                                                 # best result in previous two runs
     if "training" not in os.listdir():
         os.mkdir("./training")
 
+    # Get a compute cluster and environment for scikit-learn
     compute_cluster = get_compute_cluster()
     hyperd_env = get_hyperd_environment()
 
+    # Use the main() function from this script to train a model
     src = ScriptRunConfig(
         source_directory=".",
         script="functions.py",
@@ -198,18 +207,21 @@ def run_hyperd():
         environment=hyperd_env
     )
 
+    # Setup a hyperdrive config
     hyperdrive_config = HyperDriveConfig(run_config=src,
         hyperparameter_sampling=ps,
         policy=policy,
-        primary_metric_name='accuracy',
-        primary_metric_goal=PrimaryMetricGoal.MAXIMIZE,
-        max_total_runs=100,
+        primary_metric_name='accuracy',  # choose accuracy as the primary metric for easier comparison with published results
+        primary_metric_goal=PrimaryMetricGoal.MAXIMIZE, # accuracy should be maximized
+        max_total_runs=100, # try 100 different hyperparameter combinations in total
         max_concurrent_runs=3)
 
+    # Submit hyperdrive run and show its details
     hyperdrive_run = exp.submit(config=hyperdrive_config)
     RunDetails(hyperdrive_run).show()
     hyperdrive_run.wait_for_completion(show_output=True)
 
+    # When finished, get the best model from the best run
     best_run = hyperdrive_run.get_best_run_by_primary_metric()
     best_run_metrics = best_run.get_metrics()
     parameter_values = best_run.get_details()['runDefinition']['arguments']
@@ -218,48 +230,61 @@ def run_hyperd():
     print('Accuracy:', best_run_metrics['accuracy'])
     print('Parameters:', parameter_values)
 
+    # Download the best model
     best_run.download_file('outputs/model.pkl', HYPERDRIVE_MODEL_PATH, _validate_checksum=True)
     
 
+# Print information about the best model and test it on the test data
 def show_and_test_local_hyperd_model(test_ds):
     model = joblib.load(HYPERDRIVE_MODEL_PATH)
-    print(model)
+    print(model) # show information about the best model
+    # Prepare test set for prediction
     test_df = test_ds.to_pandas_dataframe()
     X_test = test_df.drop(['income'], axis=1).to_numpy()
     y_test = test_df['income'].to_numpy()
     y_pred = model.predict(X_test)
+    # Build a confusion matrix based on the true labels and predictions
     cm = confusion_matrix(y_test, y_pred)
+    # Calculate model's accuracy on the test data
     accuracy = accuracy_score(y_test, y_pred)
     print(accuracy)
     return pd.DataFrame(cm).style.background_gradient(cmap='Blues', low=0, high=0.9)
 
 
+# Function for registering and deploying the model found by hyperdrive
 def register_and_deploy_hyperd_model():
     
     ws = get_workspace()
     
+    # Register model
     model = Model.register(ws, model_name='adult-hyperd-model',
         model_path=HYPERDRIVE_MODEL_PATH)
 
+    # Get a scikit-learn environment for running the model
     hyperd_env = get_hyperd_environment()
 
+    # Specify entry script under ./source_dir in the inference config
     inference_config = InferenceConfig(
         environment=hyperd_env,
         source_directory='./source_dir',
         entry_script='./predict_hyperd.py',
         )
 
+    # Configure a compute instance for model deployment
     deployment_config = AciWebservice.deploy_configuration(
         cpu_cores=0.5, memory_gb=1, auth_enabled=True
         )
 
+    # Deploy model to a compute instance
     service = Model.deploy(ws, 'adult-hyperd-service', [model],
         inference_config, deployment_config, overwrite=True)
     service.wait_for_deployment(show_output=True)
 
+    # Print logs to see if deployment was successful
     print(service.get_logs())
 
 
+# Cast values in test input to basic types for JSON encoding
 def cast_hyperd_test_input(test_input):
     cast_test_input = {}
     cast_test_input['age'] = int(test_input['age'])
@@ -279,14 +304,16 @@ def cast_hyperd_test_input(test_input):
     return cast_test_input
 
 
+# Create a test input from a row in the Adult test dataset
 def create_hyperd_test_input(test_ds, row):
     test_df = test_ds.to_pandas_dataframe().iloc[row]
-    test_label = int(test_df['income'])
-    del test_df['income']
+    test_label = int(test_df['income']) # remember label
+    del test_df['income'] # delete label column
     test_input = cast_hyperd_test_input(test_df)
-    return test_input, test_label
+    return test_input, test_label # return test input and label
     
 
+# Send test data 
 def test_deployed_hyperd_model(test_ds, row):
     
     ws = get_workspace()
@@ -342,46 +369,58 @@ def run_automl():
 
 def show_and_test_local_automl_model(test_ds):
     model = joblib.load(AUTOML_MODEL_PATH)
+    # Show steps in the AutoML model
     for step in model.steps:
         print(step)
+    # Construct test data
     test_df = test_ds.to_pandas_dataframe()
     X_test = test_df.drop(['income'], axis=1)
     y_test = test_df['income']
     y_pred = model.predict(X_test)
+    # Calculate confusion matrix based on the true labels and predictions
     cm = confusion_matrix(y_test, y_pred)
+    # Calculate the model's accuracy on the Adult test set
     accuracy = accuracy_score(y_test, y_pred)
     print(accuracy)
     return pd.DataFrame(cm).style.background_gradient(cmap='Blues', low=0, high=0.9)
 
 
+# Function for registering and deploying the best AutoML model
 def register_and_deploy_automl_model():
     
     ws = get_workspace()
     
+    # Register best model in workspace
     model = Model.register(ws, model_name='adult-automl-model',
         model_path=AUTOML_MODEL_PATH)
 
+    # Get an environment for AutoML
     automl_env = get_automl_environment()
 
+    # Provide an entry script under ./source_dir in the inference config
     inference_config = InferenceConfig(
         environment=automl_env,
         source_directory='./source_dir',
         entry_script='./predict_automl.py',
         )
 
+    # Configure deployment on a compute instance
     deployment_config = AciWebservice.deploy_configuration(
         cpu_cores=0.5, memory_gb=1, auth_enabled=True
         )
 
+    # Deploy model on the compute instance
     service = Model.deploy(ws, 'adult-automl-service', [model],
         inference_config, deployment_config, overwrite=True)
     service.wait_for_deployment(show_output=True)
 
+    # Get logs from the compute instance to see if it is running
     print(service.get_logs())
     
     return service
 
     
+# Cast all field values from test input to basic types for JSON encoding
 def cast_automl_test_input(test_input):
     cast_test_input = {}
     cast_test_input['age'] = int(test_input['age'])
@@ -401,30 +440,62 @@ def cast_automl_test_input(test_input):
     return cast_test_input
 
 
+# Takes a row from the Adult test set and creates an input for the deployed model from it
 def create_automl_test_input(test_ds, row):
     test_df = test_ds.to_pandas_dataframe().iloc[row]
-    test_label = test_df['income']
-    del test_df['income']
-    test_input = cast_automl_test_input(test_df)
-    return test_input, test_label
+    test_label = test_df['income'] # remember label
+    del test_df['income'] # drop label column
+    test_input = cast_automl_test_input(test_df) # construct input data from dataframe
+    return test_input, test_label # return input data and label
 
-    
+
+# Test the deployed model with a row from the Adult test set
 def test_deployed_automl_model(test_ds, row, service=None):
     
     ws = get_workspace()
     
     if service is None:
+        # Get web service (endpoint) by name
         service = Webservice(workspace=ws, name='adult-automl-service')
+    # Get scoring URI and authorization keys
     scoring_uri = service.scoring_uri
     key, _ = service.get_keys()
 
+    # Construct request headers
     headers = {"Content-Type": "application/json"}
     headers['Authorization'] = f'Bearer {key}'
+    # Create test input for specified row in Adult test set
     test_input, test_label = create_automl_test_input(test_ds, row)
+    # JSON encode input data
     data = json.dumps(test_input)
+    # Send headers and data via HTTP post request
     response = requests.post(scoring_uri, data=data, headers=headers)
     
+    # Print label and received prediction for comparison
     print('label:', test_label, ', prediction:', str(response.json()))
+    
+    
+def clean_up(automl=False):
+    model_type = 'hyperd'
+    if automl:
+        model_type = 'automl'
+    
+    print('Delete compute cluster ...')
+    compute_cluster = get_compute_cluster()
+    compute_cluster.delete()
+    
+    ws = get_workspace()
+    print('Delete web service ...')
+    service = Webservice(workspace=ws, name=f'adult-{model_type}-service')
+    print(service.get_logs()) # print logs before deleting the service
+    service.delete()
+    
+    print('Delete registered models ...')
+    for model in Model.list(ws):
+        if model_type in model.name:
+            Model(ws, name=model.name, version=model.version).delete()
+    
+
     
 
 def main():
