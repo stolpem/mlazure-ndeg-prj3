@@ -313,21 +313,28 @@ def create_hyperd_test_input(test_ds, row):
     return test_input, test_label # return test input and label
     
 
-# Send test data 
+# Test the deployed random forst model with a row from the Adult test set
 def test_deployed_hyperd_model(test_ds, row):
     
     ws = get_workspace()
     
+    # Get web service
     service = Webservice(workspace=ws, name='adult-hyperd-service')
+    # Get URI and authorization keys
     scoring_uri = service.scoring_uri
     key, _ = service.get_keys()
 
+    # Construct HTTP request headers
     headers = {"Content-Type": "application/json"}
     headers['Authorization'] = f'Bearer {key}'
+    # Create input data from the specified row of the Adult test set
     test_input, test_label = create_hyperd_test_input(test_ds, row)
+    # JSON encode the test input
     data = json.dumps(test_input)
+    # Send HTTP post request with data and headers
     response = requests.post(scoring_uri, data=data, headers=headers)
     
+    # Print label and prediction (response) for comparison
     print('label:', test_label, ', prediction:', int(response.json()))
  
     
@@ -338,13 +345,19 @@ def run_automl():
 
     ws = get_workspace()
     
+    # Create an AutoML experiment
     exp = Experiment(workspace=ws, name='adult-automl')
     run = exp.start_logging()
     
+    # Get a compute cluster (or create one)
     compute_cluster = get_compute_cluster()
     
+    # Get the training data
     train_ds, _ = get_data()
     
+    # Configure AutoML to run for a maximum of 30 minutes
+    # Use 'accuracy' as the primary metric, predict the income,
+    # use 5-fold cross validation for performance evaluation
     automl_config = AutoMLConfig(
         experiment_timeout_minutes=30,
         task='classification',
@@ -354,16 +367,19 @@ def run_automl():
         n_cross_validations=5,
         compute_target=compute_cluster)
     
+    # Submit AutoML run
     automl_run = exp.submit(automl_config)
     RunDetails(automl_run).show()
     automl_run.wait_for_completion(show_output=True)
     
+    # Get the best run and model
     best_run, best_model = automl_run.get_output()
     best_run_metrics = best_run.get_metrics()
 
     print('Best run ID:', best_run.id)
     print('Accuracy:', best_run_metrics['accuracy'])
 
+    # Save the best AutoML model
     joblib.dump(best_model, AUTOML_MODEL_PATH)
     
 
@@ -449,7 +465,7 @@ def create_automl_test_input(test_ds, row):
     return test_input, test_label # return input data and label
 
 
-# Test the deployed model with a row from the Adult test set
+# Test the deployed AutoML  model with a row from the Adult test set
 def test_deployed_automl_model(test_ds, row, service=None):
     
     ws = get_workspace()
@@ -474,8 +490,10 @@ def test_deployed_automl_model(test_ds, row, service=None):
     # Print label and received prediction for comparison
     print('label:', test_label, ', prediction:', str(response.json()))
     
-    
+
+# Delete cluster, web service and registered model
 def clean_up(automl=False):
+    
     model_type = 'hyperd'
     if automl:
         model_type = 'automl'
@@ -496,10 +514,12 @@ def clean_up(automl=False):
             Model(ws, name=model.name, version=model.version).delete()
     
 
-    
+# Main part for training a random forst model with hyperdrive    
 
 def main():
 
+    # Parse arguments given to the script
+    
     parser = argparse.ArgumentParser()
 
     parser.add_argument('--n_estimators', type=int, default=10, help='Number of estimators in the ensemble')
@@ -509,6 +529,8 @@ def main():
 
     args = parser.parse_args()
     
+    # Get the context in which this script is run
+    
     run = Run.get_context()
 
     # Read parameters provided by HyperDrive run
@@ -517,21 +539,26 @@ def main():
     run.log('max features', int(args.max_features))
     run.log('min samples leaf', float(args.min_samples_leaf))
 
+    # Get training data from workspace and prepare it for training
     ws = run.experiment.workspace
     train_ds, _ = get_data(ws, suffix='hyperd')
     train_df = train_ds.to_pandas_dataframe()
     X_train = train_df.drop(['income'], axis=1).to_numpy()
     y_train = train_df['income'].to_numpy()
     
+    # Create a random forest classifier with the provided hyperparameters
     clf = sklearn.ensemble.RandomForestClassifier(n_estimators=args.n_estimators,
         max_depth=args.max_depth, max_features=args.max_features,
         min_samples_leaf=args.min_samples_leaf, random_state=42)
     
+    # Fit the classifier and save the resulting model for potential later use
     model_for_all_data = clf.fit(X_train, y_train)
     joblib.dump(model_for_all_data, './outputs/model.pkl')
     
+    # Validate the model using 5-fold cross validation
     cv_results = cross_validate(clf, X_train, y_train, cv=5, scoring='accuracy', verbose=2)
     
+    # Log the accuracy from the cross validation
     run.log("accuracy", float(cv_results['test_score'].mean()))
 
 
