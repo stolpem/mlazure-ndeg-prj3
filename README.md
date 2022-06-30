@@ -106,11 +106,11 @@ Limiting the maximum number of features which can be used may increase the varie
 
 ### Results
 
-![hyperdrive_details.png](C:\Users\StolpeM\Downloads\mlazure-ndeg-prj3-main\screenshots\hyperdrive_details.png)
+![hyperdrive_details.png](screenshots/hyperdrive_details.png)
 
 The above screenshot shows details about the hyperdrive run. Unfortunately, the view was not correctly updated at the end, since the best model is not the one shown in the first row of the table. It was correctly shown in the _Trials_ view of Azure ML Studio, though.
 
-![hyperdrive_best_model.png](C:\Users\StolpeM\Downloads\mlazure-ndeg-prj3-main\screenshots\hyperdrive_best_model.png)
+![hyperdrive_best_model.png](screenshots/hyperdrive_best_model.png)
 
 The above screenshot shows properties of the best random forest found by the Hyperdrive run and its performance on the test set. 
 
@@ -124,8 +124,6 @@ The best found model had the following parameters:
 * `min_samples_leaf`: 0.013049
 
 It can be observed in general that the parameter `min_samples_leaf` has the most influence on the accuracy, where larger values in many cases lead to worse performance. Lower values for `max_depth` and `max_features` can lead to worse performance as well. The parameter `n_estimators` doesn't seem to have any strong correlations with performance.
-
-
 
 ## Model Deployment
 
@@ -154,11 +152,11 @@ The endpoint will return the predicted income category (i.e. either `>50K`or `<=
 
 ## Screen Recording
 
-*TODO* Provide a link to a screen recording of the project in action. Remember that the screencast should demonstrate:
+Please find a screen recording showing a demo of the deployed model and sample requests send to the endpoint and receiving its response here:
 
-- A working model
-- Demo of the deployed  model
-- Demo of a sample request sent to the endpoint and its response
+[ML Azure Nanodegree - Sceencast Project 3 on Vimeo](https://vimeo.com/725547870)
+
+I have to apologize for the slightly degraded quality of the screencast, but unfortunately I had to resort to Powerpoint for screen recording.
 
 ## Standout Suggestions
 
