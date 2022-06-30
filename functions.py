@@ -297,9 +297,8 @@ def test_deployed_hyperd_model(test_ds, row):
     print('label:', test_label, ', prediction:', int(response.json()))
  
     
-def run_automl():
+def run_automl(automl_config):
     
-    from azureml.train.automl import AutoMLConfig
     from azureml.widgets import RunDetails
 
     ws = get_workspace()
@@ -307,24 +306,6 @@ def run_automl():
     # Create an AutoML experiment
     exp = Experiment(workspace=ws, name='adult-automl')
     run = exp.start_logging()
-    
-    # Get a compute cluster (or create one)
-    compute_cluster = get_compute_cluster()
-    
-    # Get the training data
-    train_ds, _ = get_data()
-    
-    # Configure AutoML to run for a maximum of 30 minutes
-    # Use 'accuracy' as the primary metric, predict the income,
-    # use 5-fold cross validation for performance evaluation
-    automl_config = AutoMLConfig(
-        experiment_timeout_minutes=30,
-        task='classification',
-        primary_metric='accuracy',
-        training_data=train_ds,
-        label_column_name='income',
-        n_cross_validations=5,
-        compute_target=compute_cluster)
     
     # Submit AutoML run
     automl_run = exp.submit(automl_config)
@@ -341,12 +322,33 @@ def run_automl():
     # Save the best AutoML model
     joblib.dump(best_model, AUTOML_MODEL_PATH)
     
+    
+def print_automl_model(model, prefix=""):
+    
+    from pprint import pprint
 
+    for step in model.steps:
+        print(prefix + step[0])
+        if hasattr(step[1], 'estimators') and hasattr(step[1], 'weights'):
+            pprint({'estimators': list(e[0] for e in step[1].estimators), 'weights': step[1].weights})
+            print()
+            for estimator in step[1].estimators:
+                print_automl_model(estimator[1], estimator[0]+ ' - ')
+        elif hasattr(step[1], '_base_learners') and hasattr(step[1], '_meta_learner'):
+            print("\nMeta Learner")
+            pprint(step[1]._meta_learner)
+            print()
+            for estimator in step[1]._base_learners:
+                print_automl_model(estimator[1], estimator[0]+ ' - ')
+        else:
+            pprint(step[1].get_params())
+            print()   
+
+            
 def show_and_test_local_automl_model(test_ds):
     model = joblib.load(AUTOML_MODEL_PATH)
     # Show steps in the AutoML model
-    for step in model.steps:
-        print(step)
+    print_automl_model(model)
     # Construct test data
     test_df = test_ds.to_pandas_dataframe()
     X_test = test_df.drop(['income'], axis=1)
