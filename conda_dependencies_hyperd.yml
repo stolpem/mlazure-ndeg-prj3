@@ -4,4 +4,6 @@ dependencies:
   - numpy
   - pandas
   - pip:
+    - mlflow
+    - azureml-mlflow
     - azureml-defaults
