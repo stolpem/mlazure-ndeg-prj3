@@ -523,7 +523,10 @@ def main():
     run.log("accuracy", accuracy)
     
     # Log metric with mlflow
-    mlflow.log_metric('accuracy', accuracy)
+    #mlflow.log_metric('accuracy', accuracy)
+    # This does not work - see https://github.com/Azure/azure-sdk-for-python/issues/23563 - one commenter says that either the
+    # SDK or mlflow should be used, not both - I am already using the SDK!
+    # Note also that I am using SDK version 1.42.0 - not v2!
 
 
 if __name__ == '__main__':
