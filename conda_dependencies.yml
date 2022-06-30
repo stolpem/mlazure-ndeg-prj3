@@ -1,7 +1,0 @@
-dependencies:
-  - python=3.8
-  - scikit-learn
-  - numpy
-  - pandas
-  - pip:
-    - azureml-defaults
