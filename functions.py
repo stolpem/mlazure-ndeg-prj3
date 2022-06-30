@@ -15,7 +15,7 @@ from sklearn.model_selection import cross_validate
 from sklearn.metrics import accuracy_score, confusion_matrix
 import sklearn.ensemble
 
-from azureml.core import Datastore, Environment, ScriptRunConfig, Webservice
+from azureml.core import Datastore, Environment, Webservice
 from azureml.core.workspace import Workspace
 from azureml.core.experiment import Experiment
 from azureml.core.dataset import Dataset
@@ -24,6 +24,7 @@ from azureml.core.compute_target import ComputeTargetException
 from azureml.core.run import Run
 from azureml.core.model import Model, InferenceConfig
 from azureml.core.webservice import LocalWebservice, AciWebservice
+import mlflow
 
 # List of the column / feature names for the used Adult dataset
 COLUMNS = ['age', 'workclass', 'fnlwgt', 'education', 'education-num', 'martial-status', 'occupation',
@@ -166,13 +167,8 @@ def get_automl_environment():
 
 
 # Run a hyperparameter optimization using Hyperdrive
-def run_hyperd():
-
-    from azureml.train.hyperdrive.run import PrimaryMetricGoal
-    from azureml.train.hyperdrive.policy import BanditPolicy
-    from azureml.train.hyperdrive.sampling import RandomParameterSampling
-    from azureml.train.hyperdrive.runconfig import HyperDriveConfig
-    from azureml.train.hyperdrive.parameter_expressions import choice, uniform
+def run_hyperd(hd_config):
+    
     from azureml.widgets import RunDetails
     
     ws = get_workspace()
@@ -180,44 +176,11 @@ def run_hyperd():
     exp = Experiment(workspace=ws, name='adult-hyperd')
     run = exp.start_logging()
 
-    # Setup a random parameter sampling for random forest models
-    ps = RandomParameterSampling({
-        '--n_estimators': choice(range(2, 100)),  # number of decision trees in the forst
-        '--max_depth': choice(range(2, 10)),      # maximum depth of the involved decision trees
-        '--max_features': choice(range(1, 14)),   # maximum number of features randomly chosen per decision tree
-        '--min_samples_leaf': uniform(0.01, 0.1)  # minimum fraction of samples per leaf
-    })
-
-    # Choose a bandit policy for early stopping
-    policy = BanditPolicy(evaluation_interval=2, slack_factor=0.1) # evaluate performance every two runs,
-                                                                # stop if lower than 1% point difference to
-                                                                # best result in previous two runs
     if "training" not in os.listdir():
         os.mkdir("./training")
 
-    # Get a compute cluster and environment for scikit-learn
-    compute_cluster = get_compute_cluster()
-    hyperd_env = get_hyperd_environment()
-
-    # Use the main() function from this script to train a model
-    src = ScriptRunConfig(
-        source_directory=".",
-        script="functions.py",
-        compute_target=compute_cluster,
-        environment=hyperd_env
-    )
-
-    # Setup a hyperdrive config
-    hyperdrive_config = HyperDriveConfig(run_config=src,
-        hyperparameter_sampling=ps,
-        policy=policy,
-        primary_metric_name='accuracy',  # choose accuracy as the primary metric for easier comparison with published results
-        primary_metric_goal=PrimaryMetricGoal.MAXIMIZE, # accuracy should be maximized
-        max_total_runs=100, # try 100 different hyperparameter combinations in total
-        max_concurrent_runs=3)
-
     # Submit hyperdrive run and show its details
-    hyperdrive_run = exp.submit(config=hyperdrive_config)
+    hyperdrive_run = exp.submit(config=hd_config)
     RunDetails(hyperdrive_run).show()
     hyperdrive_run.wait_for_completion(show_output=True)
 
@@ -252,14 +215,10 @@ def show_and_test_local_hyperd_model(test_ds):
 
 
 # Function for registering and deploying the model found by hyperdrive
-def register_and_deploy_hyperd_model():
+def deploy_hyperd_model(model):
     
     ws = get_workspace()
     
-    # Register model
-    model = Model.register(ws, model_name='adult-hyperd-model',
-        model_path=HYPERDRIVE_MODEL_PATH)
-
     # Get a scikit-learn environment for running the model
     hyperd_env = get_hyperd_environment()
 
@@ -558,8 +517,13 @@ def main():
     # Validate the model using 5-fold cross validation
     cv_results = cross_validate(clf, X_train, y_train, cv=5, scoring='accuracy', verbose=2)
     
+    accuracy = float(cv_results['test_score'].mean())
+    
     # Log the accuracy from the cross validation
-    run.log("accuracy", float(cv_results['test_score'].mean()))
+    run.log("accuracy", accuracy)
+    
+    # Log metric with mlflow
+    mlflow.log_metric('accuracy', accuracy)
 
 
 if __name__ == '__main__':
