@@ -75,266 +75,43 @@ The AutoML run is configured as classification task for the label column `income
 
 ### Results
 
-The best found AutoML model is a voting ensemble model consisting of 10 different classifiers. Depending on the classifier, different scalers for the data are used. 
-
-The first classifier in the ensemble is a LightGBM classifier based on gradient boosting. It contains itself of different decision trees. This type of classifier is in itself an ensemble method which combines differently weighted weak decision tree stumps. The only specified parameter is `min_data_in_leaf=20`, i.e. that at least 20 samples have to be in the leafs of the trees. The second classifier is a XGBoost classifier without any specified parameters. The two classifiers have the highest (and equal) weight (0.21) in the ensemble. 
-
-The rest of the classifiers have equal weight (0.071) and include - among many XGBoost classifiers - also a random forest and a wrapper for stochastic gradient descent (SGD). Important hyperparameters tuned for XGBoost are, for instance, the learning rate `eta`, the maximum depth of the trees `max_depth`, the number of combined trees `n_estimatos`, the fraction of training examples used for fitting the trees `subsample`, the fraction of columns to be randomly sampled per tree `colsample_bytree` and parameters for weight regularization `reg_alpha` and `reg_lambda`.
-
-datatransformer
-{'enable_dnn': False,
- 'enable_feature_sweeping': True,
- 'feature_sweeping_config': {},
- 'feature_sweeping_timeout': 86400,
- 'featurization_config': None,
- 'force_text_dnn': False,
- 'is_cross_validation': True,
- 'is_onnx_compatible': False,
- 'observer': None,
- 'task': 'classification',
- 'working_dir': '/mnt/batch/tasks/shared/LS_root/mounts/clusters/notebook199949/code/Users/odl_user_199949'}
-
-prefittedsoftvotingclassifier
-{'estimators': ['24', '0', '1', '21', '18', '6', '20'],
- 'weights': [0.125, 0.25, 0.125, 0.125, 0.125, 0.125, 0.125]}
-
-24 - standardscalerwrapper
-{'class_name': 'StandardScaler',
- 'copy': True,
- 'module_name': 'sklearn.preprocessing._data',
- 'with_mean': False,
- 'with_std': False}
-
-24 - xgboostclassifier
-{'base_score': 0.5,
- 'booster': 'gbtree',
- 'colsample_bylevel': 1,
- 'colsample_bynode': 1,
- 'colsample_bytree': 1,
- 'eta': 0.05,
- 'gamma': 0,
- 'gpu_id': -1,
- 'importance_type': 'gain',
- 'interaction_constraints': '',
- 'learning_rate': 0.0500000007,
- 'max_delta_step': 0,
- 'max_depth': 6,
- 'max_leaves': 0,
- 'min_child_weight': 1,
- 'missing': nan,
- 'monotone_constraints': '()',
- 'n_estimators': 200,
- 'n_jobs': 1,
- 'num_parallel_tree': 1,
- 'objective': 'reg:logistic',
- 'random_state': 0,
- 'reg_alpha': 0.625,
- 'reg_lambda': 0.8333333333333334,
- 'scale_pos_weight': 1,
- 'subsample': 0.8,
- 'tree_method': 'auto',
- 'use_label_encoder': True,
- 'validate_parameters': 1,
- 'verbose': -10,
- 'verbosity': 0}
-
-0 - maxabsscaler
-{'copy': True}
-
-0 - lightgbmclassifier
-{'min_data_in_leaf': 20,
- 'n_jobs': 1,
- 'problem_info': ProblemInfo(gpu_training_param_dict={'processing_unit_type': 'cpu'}),
- 'random_state': None}
-
-1 - maxabsscaler
-{'copy': True}
-
-1 - xgboostclassifier
-{'base_score': 0.5,
- 'booster': 'gbtree',
- 'colsample_bylevel': 1,
- 'colsample_bynode': 1,
- 'colsample_bytree': 1,
- 'gamma': 0,
- 'gpu_id': -1,
- 'importance_type': 'gain',
- 'interaction_constraints': '',
- 'learning_rate': 0.300000012,
- 'max_delta_step': 0,
- 'max_depth': 6,
- 'min_child_weight': 1,
- 'missing': nan,
- 'monotone_constraints': '()',
- 'n_estimators': 100,
- 'n_jobs': 1,
- 'num_parallel_tree': 1,
- 'objective': 'binary:logistic',
- 'random_state': 0,
- 'reg_alpha': 0,
- 'reg_lambda': 1,
- 'scale_pos_weight': 1,
- 'subsample': 1,
- 'tree_method': 'auto',
- 'use_label_encoder': True,
- 'validate_parameters': 1,
- 'verbose': -10,
- 'verbosity': 0}
-
-21 - standardscalerwrapper
-{'class_name': 'StandardScaler',
- 'copy': True,
- 'module_name': 'sklearn.preprocessing._data',
- 'with_mean': False,
- 'with_std': False}
-
-21 - xgboostclassifier
-{'base_score': 0.5,
- 'booster': 'gbtree',
- 'colsample_bylevel': 1,
- 'colsample_bynode': 1,
- 'colsample_bytree': 0.5,
- 'eta': 0.2,
- 'gamma': 0,
- 'gpu_id': -1,
- 'importance_type': 'gain',
- 'interaction_constraints': '',
- 'learning_rate': 0.200000003,
- 'max_delta_step': 0,
- 'max_depth': 7,
- 'max_leaves': 7,
- 'min_child_weight': 1,
- 'missing': nan,
- 'monotone_constraints': '()',
- 'n_estimators': 25,
- 'n_jobs': 1,
- 'num_parallel_tree': 1,
- 'objective': 'reg:logistic',
- 'random_state': 0,
- 'reg_alpha': 0,
- 'reg_lambda': 0.20833333333333334,
- 'scale_pos_weight': 1,
- 'subsample': 1,
- 'tree_method': 'auto',
- 'use_label_encoder': True,
- 'validate_parameters': 1,
- 'verbose': -10,
- 'verbosity': 0}
-
-18 - standardscalerwrapper
-{'class_name': 'StandardScaler',
- 'copy': True,
- 'module_name': 'sklearn.preprocessing._data',
- 'with_mean': False,
- 'with_std': False}
-
-18 - xgboostclassifier
-{'base_score': 0.5,
- 'booster': 'gbtree',
- 'colsample_bylevel': 1,
- 'colsample_bynode': 1,
- 'colsample_bytree': 0.7,
- 'eta': 0.1,
- 'gamma': 0.1,
- 'gpu_id': -1,
- 'importance_type': 'gain',
- 'interaction_constraints': '',
- 'learning_rate': 0.100000001,
- 'max_delta_step': 0,
- 'max_depth': 9,
- 'max_leaves': 511,
- 'min_child_weight': 1,
- 'missing': nan,
- 'monotone_constraints': '()',
- 'n_estimators': 25,
- 'n_jobs': 1,
- 'num_parallel_tree': 1,
- 'objective': 'reg:logistic',
- 'random_state': 0,
- 'reg_alpha': 0,
- 'reg_lambda': 1.7708333333333335,
- 'scale_pos_weight': 1,
- 'subsample': 0.9,
- 'tree_method': 'auto',
- 'use_label_encoder': True,
- 'validate_parameters': 1,
- 'verbose': -10,
- 'verbosity': 0}
-
-6 - standardscalerwrapper
-{'class_name': 'StandardScaler',
- 'copy': True,
- 'module_name': 'sklearn.preprocessing._data',
- 'with_mean': False,
- 'with_std': False}
-
-6 - xgboostclassifier
-{'base_score': 0.5,
- 'booster': 'gbtree',
- 'colsample_bylevel': 1,
- 'colsample_bynode': 1,
- 'colsample_bytree': 0.5,
- 'eta': 0.3,
- 'gamma': 0,
- 'gpu_id': -1,
- 'importance_type': 'gain',
- 'interaction_constraints': '',
- 'learning_rate': 0.300000012,
- 'max_delta_step': 0,
- 'max_depth': 10,
- 'max_leaves': 255,
- 'min_child_weight': 1,
- 'missing': nan,
- 'monotone_constraints': '()',
- 'n_estimators': 10,
- 'n_jobs': 1,
- 'num_parallel_tree': 1,
- 'objective': 'reg:logistic',
- 'random_state': 0,
- 'reg_alpha': 0,
- 'reg_lambda': 0.10416666666666667,
- 'scale_pos_weight': 1,
- 'subsample': 0.7,
- 'tree_method': 'auto',
- 'use_label_encoder': True,
- 'validate_parameters': 1,
- 'verbose': -10,
- 'verbosity': 0}
-
-20 - truncatedsvdwrapper
-{'n_components': 0.7026315789473684, 'random_state': None}
-
-20 - randomforestclassifier
-{'bootstrap': False,
- 'ccp_alpha': 0.0,
- 'class_weight': 'balanced',
- 'criterion': 'gini',
- 'max_depth': None,
- 'max_features': 'log2',
- 'max_leaf_nodes': None,
- 'max_samples': None,
- 'min_impurity_decrease': 0.0,
- 'min_samples_leaf': 0.01,
- 'min_samples_split': 0.01,
- 'min_weight_fraction_leaf': 0.0,
- 'n_estimators': 200,
- 'n_jobs': 1,
- 'oob_score': False,
- 'random_state': None,
- 'verbose': 0,
- 'warm_start': False}
-
-0.8756218905472637
-
 ![automl_details.png](screenshots/automl_details.png)
 
 The screenshot above shows the results from the AutoML run.
 
+The best found AutoML model is a voting ensemble model consisting of seven different classifiers: five XGBoost classifiers, one LightGBM classifier and a Random Forest classifier. The LightGBM classifier has the highest weight (0.25), while all others have a lower weight (0.125).
+
 ![automl_best_model.png](screenshots/automl_best_model.png)
 
-The screenshot shows details about the best model found by AutoML.
+The screenshot above shows the last part of a pretty print statement for the best model found by AutoML and its accuracy on the test set, together with a confusion matrix.
 
-The voting ensemble achieves an accuracy of about 87.5% on the training set and about **87.6%** on the test set. Results might even improve by allowing for a longer running time of the AutoML run. The results from AutoML are impressive in so far as the achieved accuracy is higher than the results published on the UCI website. 
+Since the output was truncated (the whole output can be found in the corresponding notebook), the hyperparameters of the classifiers are listed in the following tables. 
+
+###### XGBoost
+
+| weight | scaler   | base_score | booster | colsample_by_level | colsample_by_node | colsample_by_tree | eta | gamma | importance_type | learning_rate | max_delta_step | max_depth | max_leaves | min_child_weight | n_estimators | objective       | reg_alpha | reg_lambda          | scale_pos_weight | subsample | tree_method |
+| ------ | -------- | ---------- | ------- | ------------------ | ----------------- | ----------------- | --- | ----- | --------------- | ------------- | -------------- | --------- | ---------- | ---------------- | ------------ | --------------- | --------- | ------------------- | ---------------- | --------- | ----------- |
+| 0.125  | standard | 0.5        | gbtree  | 1                  | 1                 | 1                 | 0.5 | 0     | gain            | 0.0500000007  | 0              | 6         | 0          | 1                | 200          | reg:logistic    | 0.625     | 0.8333333333333334  | 1                | 0.8       | auto        |
+| 0.125  | maxabs   | 0.5        | gbtree  | 1                  | 1                 | 1                 |     | 0     | gain            | 0.300000012   | 0              | 6         |            | 1                | 100          | binary:logistic | 0         | 1                   | 1                | 1         | auto        |
+| 0.125  | standard | 0.5        | gbtree  | 1                  | 1                 | 0.5               | 0.2 | 0     | gain            | 0.200000003   | 0              | 7         | 7          | 1                | 25           | reg:logistic    | 0         | 0.20833333333333334 | 1                | 1         | auto        |
+| 0.125  | standard | 0.5        | gbtree  | 1                  | 1                 | 0.7               | 0.1 | 0.1   | gain            | 0.100000001   | 0              | 9         | 511        | 1                | 25           | reg:logistic    | 0         | 1.7708333333333335  | 1                | 0.9       | auto        |
+| 0.125  | standard | 0.5        | gbtree  | 1                  | 1                 | 0.5               | 0.3 | 0     | gain            | 0.300000012   | 0              | 10        | 255        | 1                | 10           | reg:logistic    | 0         | 0.10416666666666667 | 1                | 0.7       | auto        |
+
+###### LightGBM
+
+| weight | scaler | min_data_in_leaf |
+| ------ | ------ | ---------------- |
+| 0.25   | maxabs | 20               |
+
+###### Random Forest
+
+| weight | scaler       | n_components       | bootstrap | ccp_alpha | class_weight | criterion | max_features | min_impurity_decrease | min_samples_leaf | min_samples_split | min_weight_fraction_leaf | n_estimators |
+| ------ | ------------ | ------------------ | --------- | --------- | ------------ | --------- | ------------ | --------------------- | ---------------- | ----------------- | ------------------------ | ------------ |
+| 0.125  | truncatedsvd | 0.7026315789473684 | False     | 0.0       | balanced     | gini      | log2         | 0.0                   | 0.01             | 0.01              | 0.0                      | 200          |
+
+#### Performance
+
+The voting ensemble achieves an accuracy of about 87.4% on the training set and about **87.6%** on the test set. Results might even improve by allowing for a longer running time of the AutoML run. The results from AutoML are impressive in so far as the achieved accuracy is higher than the results published on the UCI website. 
 
 ## Hyperparameter Tuning
 
@@ -353,22 +130,24 @@ Limiting the maximum number of features which can be used may increase the varie
 
 ![hyperdrive_details.png](screenshots/hyperdrive_details.png)
 
-The above screenshot shows details about the hyperdrive run. Unfortunately, the view was not correctly updated at the end, since the best model is not the one shown in the first row of the table. It was correctly shown in the _Trials_ view of Azure ML Studio, though.
+The above screenshot shows details about the hyperdrive run.
 
 ![hyperdrive_best_model.png](screenshots/hyperdrive_best_model.png)
 
-The above screenshot shows properties of the best random forest found by the Hyperdrive run and its performance on the test set. 
-
-The best model of 100 trials yields a cross-validated accuracy of 84.002% on the training set. On the test set, it gives an accuracy of **83.834%**.
+The above screenshot shows properties of the best random forest found by the Hyperdrive run, its performance on the test set and a confusion matrix.
 
 The best found model had the following parameters:
 
-* `n_estimators`: 57,
-* `max_depth`: 9,
-* `max_features`: 11,
-* `min_samples_leaf`: 0.013049
+- `n_estimators`: 16,
+- `max_depth`: 5,
+- `max_features`: 9,
+- `min_samples_leaf`: 0.010409048758333402
 
 It can be observed in general that the parameter `min_samples_leaf` has the most influence on the accuracy, where larger values in many cases lead to worse performance. Lower values for `max_depth` and `max_features` can lead to worse performance as well. The parameter `n_estimators` doesn't seem to have any strong correlations with performance.
+
+#### Performance
+
+The best model of 100 trials yields a cross-validated accuracy of 84.2% on the training set. On the test set, it gives an accuracy of **83.9%**. The AutoML model therefore beats the best single random forest by 3.7 percentage points, which is the reason why the AutoML model got deployed. 
 
 ## Model Deployment
 
