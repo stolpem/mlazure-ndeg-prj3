@@ -363,14 +363,10 @@ def show_and_test_local_automl_model(test_ds):
 
 
 # Function for registering and deploying the best AutoML model
-def register_and_deploy_automl_model():
+def deploy_automl_model(model):
     
     ws = get_workspace()
     
-    # Register best model in workspace
-    model = Model.register(ws, model_name='adult-automl-model',
-        model_path=AUTOML_MODEL_PATH)
-
     # Get an environment for AutoML
     automl_env = get_automl_environment()
 

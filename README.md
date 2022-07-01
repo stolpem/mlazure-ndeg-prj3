@@ -81,6 +81,251 @@ The first classifier in the ensemble is a LightGBM classifier based on gradient 
 
 The rest of the classifiers have equal weight (0.071) and include - among many XGBoost classifiers - also a random forest and a wrapper for stochastic gradient descent (SGD). Important hyperparameters tuned for XGBoost are, for instance, the learning rate `eta`, the maximum depth of the trees `max_depth`, the number of combined trees `n_estimatos`, the fraction of training examples used for fitting the trees `subsample`, the fraction of columns to be randomly sampled per tree `colsample_bytree` and parameters for weight regularization `reg_alpha` and `reg_lambda`.
 
+datatransformer
+{'enable_dnn': False,
+ 'enable_feature_sweeping': True,
+ 'feature_sweeping_config': {},
+ 'feature_sweeping_timeout': 86400,
+ 'featurization_config': None,
+ 'force_text_dnn': False,
+ 'is_cross_validation': True,
+ 'is_onnx_compatible': False,
+ 'observer': None,
+ 'task': 'classification',
+ 'working_dir': '/mnt/batch/tasks/shared/LS_root/mounts/clusters/notebook199949/code/Users/odl_user_199949'}
+
+prefittedsoftvotingclassifier
+{'estimators': ['24', '0', '1', '21', '18', '6', '20'],
+ 'weights': [0.125, 0.25, 0.125, 0.125, 0.125, 0.125, 0.125]}
+
+24 - standardscalerwrapper
+{'class_name': 'StandardScaler',
+ 'copy': True,
+ 'module_name': 'sklearn.preprocessing._data',
+ 'with_mean': False,
+ 'with_std': False}
+
+24 - xgboostclassifier
+{'base_score': 0.5,
+ 'booster': 'gbtree',
+ 'colsample_bylevel': 1,
+ 'colsample_bynode': 1,
+ 'colsample_bytree': 1,
+ 'eta': 0.05,
+ 'gamma': 0,
+ 'gpu_id': -1,
+ 'importance_type': 'gain',
+ 'interaction_constraints': '',
+ 'learning_rate': 0.0500000007,
+ 'max_delta_step': 0,
+ 'max_depth': 6,
+ 'max_leaves': 0,
+ 'min_child_weight': 1,
+ 'missing': nan,
+ 'monotone_constraints': '()',
+ 'n_estimators': 200,
+ 'n_jobs': 1,
+ 'num_parallel_tree': 1,
+ 'objective': 'reg:logistic',
+ 'random_state': 0,
+ 'reg_alpha': 0.625,
+ 'reg_lambda': 0.8333333333333334,
+ 'scale_pos_weight': 1,
+ 'subsample': 0.8,
+ 'tree_method': 'auto',
+ 'use_label_encoder': True,
+ 'validate_parameters': 1,
+ 'verbose': -10,
+ 'verbosity': 0}
+
+0 - maxabsscaler
+{'copy': True}
+
+0 - lightgbmclassifier
+{'min_data_in_leaf': 20,
+ 'n_jobs': 1,
+ 'problem_info': ProblemInfo(gpu_training_param_dict={'processing_unit_type': 'cpu'}),
+ 'random_state': None}
+
+1 - maxabsscaler
+{'copy': True}
+
+1 - xgboostclassifier
+{'base_score': 0.5,
+ 'booster': 'gbtree',
+ 'colsample_bylevel': 1,
+ 'colsample_bynode': 1,
+ 'colsample_bytree': 1,
+ 'gamma': 0,
+ 'gpu_id': -1,
+ 'importance_type': 'gain',
+ 'interaction_constraints': '',
+ 'learning_rate': 0.300000012,
+ 'max_delta_step': 0,
+ 'max_depth': 6,
+ 'min_child_weight': 1,
+ 'missing': nan,
+ 'monotone_constraints': '()',
+ 'n_estimators': 100,
+ 'n_jobs': 1,
+ 'num_parallel_tree': 1,
+ 'objective': 'binary:logistic',
+ 'random_state': 0,
+ 'reg_alpha': 0,
+ 'reg_lambda': 1,
+ 'scale_pos_weight': 1,
+ 'subsample': 1,
+ 'tree_method': 'auto',
+ 'use_label_encoder': True,
+ 'validate_parameters': 1,
+ 'verbose': -10,
+ 'verbosity': 0}
+
+21 - standardscalerwrapper
+{'class_name': 'StandardScaler',
+ 'copy': True,
+ 'module_name': 'sklearn.preprocessing._data',
+ 'with_mean': False,
+ 'with_std': False}
+
+21 - xgboostclassifier
+{'base_score': 0.5,
+ 'booster': 'gbtree',
+ 'colsample_bylevel': 1,
+ 'colsample_bynode': 1,
+ 'colsample_bytree': 0.5,
+ 'eta': 0.2,
+ 'gamma': 0,
+ 'gpu_id': -1,
+ 'importance_type': 'gain',
+ 'interaction_constraints': '',
+ 'learning_rate': 0.200000003,
+ 'max_delta_step': 0,
+ 'max_depth': 7,
+ 'max_leaves': 7,
+ 'min_child_weight': 1,
+ 'missing': nan,
+ 'monotone_constraints': '()',
+ 'n_estimators': 25,
+ 'n_jobs': 1,
+ 'num_parallel_tree': 1,
+ 'objective': 'reg:logistic',
+ 'random_state': 0,
+ 'reg_alpha': 0,
+ 'reg_lambda': 0.20833333333333334,
+ 'scale_pos_weight': 1,
+ 'subsample': 1,
+ 'tree_method': 'auto',
+ 'use_label_encoder': True,
+ 'validate_parameters': 1,
+ 'verbose': -10,
+ 'verbosity': 0}
+
+18 - standardscalerwrapper
+{'class_name': 'StandardScaler',
+ 'copy': True,
+ 'module_name': 'sklearn.preprocessing._data',
+ 'with_mean': False,
+ 'with_std': False}
+
+18 - xgboostclassifier
+{'base_score': 0.5,
+ 'booster': 'gbtree',
+ 'colsample_bylevel': 1,
+ 'colsample_bynode': 1,
+ 'colsample_bytree': 0.7,
+ 'eta': 0.1,
+ 'gamma': 0.1,
+ 'gpu_id': -1,
+ 'importance_type': 'gain',
+ 'interaction_constraints': '',
+ 'learning_rate': 0.100000001,
+ 'max_delta_step': 0,
+ 'max_depth': 9,
+ 'max_leaves': 511,
+ 'min_child_weight': 1,
+ 'missing': nan,
+ 'monotone_constraints': '()',
+ 'n_estimators': 25,
+ 'n_jobs': 1,
+ 'num_parallel_tree': 1,
+ 'objective': 'reg:logistic',
+ 'random_state': 0,
+ 'reg_alpha': 0,
+ 'reg_lambda': 1.7708333333333335,
+ 'scale_pos_weight': 1,
+ 'subsample': 0.9,
+ 'tree_method': 'auto',
+ 'use_label_encoder': True,
+ 'validate_parameters': 1,
+ 'verbose': -10,
+ 'verbosity': 0}
+
+6 - standardscalerwrapper
+{'class_name': 'StandardScaler',
+ 'copy': True,
+ 'module_name': 'sklearn.preprocessing._data',
+ 'with_mean': False,
+ 'with_std': False}
+
+6 - xgboostclassifier
+{'base_score': 0.5,
+ 'booster': 'gbtree',
+ 'colsample_bylevel': 1,
+ 'colsample_bynode': 1,
+ 'colsample_bytree': 0.5,
+ 'eta': 0.3,
+ 'gamma': 0,
+ 'gpu_id': -1,
+ 'importance_type': 'gain',
+ 'interaction_constraints': '',
+ 'learning_rate': 0.300000012,
+ 'max_delta_step': 0,
+ 'max_depth': 10,
+ 'max_leaves': 255,
+ 'min_child_weight': 1,
+ 'missing': nan,
+ 'monotone_constraints': '()',
+ 'n_estimators': 10,
+ 'n_jobs': 1,
+ 'num_parallel_tree': 1,
+ 'objective': 'reg:logistic',
+ 'random_state': 0,
+ 'reg_alpha': 0,
+ 'reg_lambda': 0.10416666666666667,
+ 'scale_pos_weight': 1,
+ 'subsample': 0.7,
+ 'tree_method': 'auto',
+ 'use_label_encoder': True,
+ 'validate_parameters': 1,
+ 'verbose': -10,
+ 'verbosity': 0}
+
+20 - truncatedsvdwrapper
+{'n_components': 0.7026315789473684, 'random_state': None}
+
+20 - randomforestclassifier
+{'bootstrap': False,
+ 'ccp_alpha': 0.0,
+ 'class_weight': 'balanced',
+ 'criterion': 'gini',
+ 'max_depth': None,
+ 'max_features': 'log2',
+ 'max_leaf_nodes': None,
+ 'max_samples': None,
+ 'min_impurity_decrease': 0.0,
+ 'min_samples_leaf': 0.01,
+ 'min_samples_split': 0.01,
+ 'min_weight_fraction_leaf': 0.0,
+ 'n_estimators': 200,
+ 'n_jobs': 1,
+ 'oob_score': False,
+ 'random_state': None,
+ 'verbose': 0,
+ 'warm_start': False}
+
+0.8756218905472637
+
 ![automl_details.png](screenshots/automl_details.png)
 
 The screenshot above shows the results from the AutoML run.
